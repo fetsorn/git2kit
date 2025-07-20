@@ -1,0 +1,12 @@
+[package]
+name = "git2kit"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+git2 = "0.20.0"
+bstr = "1.11.3"
+crossterm = "0.29.0"
+serde = { version = "1", features = ["derive"] }
+backtrace = "0.3.75"
+log = "0.4.27"
