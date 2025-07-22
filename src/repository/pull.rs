@@ -4,7 +4,7 @@ use crate::{
 };
 use serde::Serialize;
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize, PartialEq)]
 #[serde(tag = "state", content = "branch", rename_all = "snake_case")]
 pub enum PullOutcome {
     UpToDate(String),
@@ -118,5 +118,63 @@ where
         Ok(PullOutcome::FastForwarded(default_branch))
     } else {
         Err(crate::Error::from_message("cannot fast-forward"))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{Repository, Origin, Result, PullOutcome};
+    use temp_dir::TempDir;
+    use std::fs::File;
+    use std::io::prelude::*;
+
+    #[tokio::test]
+    async fn pull_test() -> Result<()> {
+        // clone the project to a temporary directory
+        let pwd = std::env::current_dir()?;
+
+        let temp_remote = Origin::new(
+            pwd.to_str().unwrap(),
+            Some("token"),
+        );
+
+        // create a temporary directory, will be deleted by destructor
+        // must assign to keep in scope;
+        let temp_dir = TempDir::new();
+
+        // reference temp_dir to not move it out of scope
+        let temp_path = temp_dir.as_ref().unwrap().path().to_path_buf();
+
+        let temp_repository = Repository::clone(temp_path.clone(), &temp_remote).await?;
+
+        // clone the temporary directory to a pull directory
+        let pull_remote = Origin::new(
+            temp_path.to_str().unwrap(),
+            Some("token"),
+        );
+
+        let pull_dir = TempDir::new();
+
+        let pull_path = pull_dir.as_ref().unwrap().path().to_path_buf();
+
+        let pull_repository = Repository::clone(pull_path.clone(), &pull_remote).await?;
+
+        // try to pull an up-to-date repository
+        let outcome = pull_repository.pull()?;
+
+        assert!(outcome == PullOutcome::UpToDate("main".to_string()));
+
+        let mut file = File::create(temp_path.join("foo.txt"))?;
+
+        file.write_all(b"Hello, world!")?;
+
+        temp_repository.commit()?;
+
+        // try to push a changed repository
+        let outcome = pull_repository.pull()?;
+
+        assert!(outcome == PullOutcome::FastForwarded("main".to_string()));
+
+        Ok(())
     }
 }

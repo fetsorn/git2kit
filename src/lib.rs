@@ -10,5 +10,5 @@ mod working_tree_status;
 
 pub use error::{Error, Result};
 pub use origin::Origin;
-pub use repository::Repository;
+pub use repository::{PullOutcome, Repository};
 pub use settings::Settings;

@@ -4,7 +4,6 @@ use std::path::PathBuf;
 
 pub async fn clone(
     dataset_dir: PathBuf,
-    name: Option<String>,
     remote: &Origin,
 ) -> Result<Repository> {
     // clone to dataset_dir from remote_url with remote_token
@@ -25,6 +24,10 @@ pub async fn clone(
 
     // Prepare builder.
     let mut builder = git2::build::RepoBuilder::new();
+
+    // only works if origin has main
+    //builder.branch("main");
+
     builder.fetch_options(fo);
 
     // Clone the project.
@@ -33,6 +36,8 @@ pub async fn clone(
         &dataset_dir,
     )?;
 
+    // TODO rename default branch to main
+
     // set config.remote.origin.url
 
     // set config.remote.origin.token
@@ -40,57 +45,41 @@ pub async fn clone(
     Ok(Repository {repo})
 }
 
-//mod test {
-//    use crate::{create_app, Dataset, Result};
-//    use super::{Repository, Remote};
-//    use std::fs::read_dir;
-//    use tauri::test::{mock_builder, mock_context, noop_assets};
-//    use tauri::{Manager, State};
-//    use temp_dir::TempDir;
-//
-//    #[tokio::test]
-//    async fn clone_test() -> Result<()> {
-//        // create a temporary directory, will be deleted by destructor
-//        // must assign to keep in scope;
-//        let temp_dir = TempDir::new();
-//
-//        // reference temp_dir to not move it out of scope
-//        let temp_path = temp_dir.as_ref().unwrap().path().to_path_buf();
-//
-//        let app = create_app(mock_builder());
-//
-//        // save temporary directory path in the tauri state
-//        app.manage(temp_path.clone());
-//
-//        let uuid = "euuid";
-//
-//        let name = "etest";
-//
-//        let dataset = Dataset::new(app.handle().clone(), &uuid);
-//
-//        let dataset_dir = dataset.name_dataset(Some(name))?;
-//
-//        let remote = Remote::new(
-//            Some("https://codeberg.org/norcivilianlabs/pages"),
-//            None,
-//            None,
-//        );
-//
-//        Repository::clone(dataset_dir, Some(name.to_string()), &remote).await?;
-//
-//        // check that repo cloned
-//        read_dir(&temp_path)?.for_each(|entry| {
-//            let entry = entry.unwrap();
-//
-//            assert!(entry.file_name() == "store");
-//
-//            read_dir(entry.path()).unwrap().for_each(|entry| {
-//                let entry = entry.unwrap();
-//
-//                assert!(entry.file_name() == "euuid-etest");
-//            });
-//        });
-//
-//        Ok(())
-//    }
-//}
+#[cfg(test)]
+mod test {
+    use super::{Repository, Origin, Result};
+    use std::fs::read_dir;
+    use temp_dir::TempDir;
+
+    #[tokio::test]
+    async fn clone_test() -> Result<()> {
+        // clone the project to a temporary directory
+        let pwd = std::env::current_dir()?;
+
+        let remote = Origin::new(
+            pwd.to_str().unwrap(),
+            Some("token"),
+        );
+
+        // create a temporary directory, will be deleted by destructor
+        // must assign to keep in scope;
+        let temp_dir = TempDir::new();
+
+        // reference temp_dir to not move it out of scope
+        let temp_path = temp_dir.as_ref().unwrap().path().to_path_buf();
+
+
+        let repository = Repository::clone(temp_path.clone(), &remote).await?;
+
+        assert!(repository.repo.path() == temp_path.join(".git"));
+
+        // check that repo cloned
+        let gitrepo = read_dir(&temp_path)?.find(|entry| {
+            entry.as_ref().unwrap().file_name() == ".git"
+        });
+
+        assert!(gitrepo.is_some());
+
+        Ok(())
+    }
+}

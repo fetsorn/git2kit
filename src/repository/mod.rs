@@ -1,5 +1,7 @@
 mod open;
+mod add;
 mod init;
+mod init_bare;
 mod clone;
 mod status;
 mod try_open;
@@ -7,6 +9,7 @@ mod head_status;
 mod upstream_status;
 mod working_tree_status;
 mod pull;
+mod push;
 mod create_unborn;
 mod fast_forward;
 mod create_branch;
@@ -20,6 +23,7 @@ mod commit;
 mod find_last_commit;
 
 pub use upstream_status::UpstreamStatus;
+pub use pull::PullOutcome;
 
 use super::{head_status::HeadStatus, repository_status::RepositoryStatus, origin::Origin, working_tree_status::WorkingTreeStatus, settings::Settings};
 use std::path::{Path, PathBuf};
@@ -34,16 +38,19 @@ impl Repository {
         init::init(path)
     }
 
+    pub fn init_bare(path: &Path) -> Result<Self> {
+        init_bare::init_bare(path)
+    }
+
     pub fn open(path: &Path) -> Result<Self> {
         open::open(path)
     }
 
     pub async fn clone(
         dataset_dir: PathBuf,
-        name: Option<String>,
         origin: &Origin,
     ) -> Result<Self> {
-        clone::clone(dataset_dir, name, origin).await
+        clone::clone(dataset_dir, origin).await
     }
 
     pub fn status(
@@ -97,11 +104,22 @@ impl Repository {
     }
 
     pub fn push(&self) -> Result<()> {
-        let mut remote = self.find_remote("origin")?;
+        let settings = Settings {
+            default_branch: None,
+            default_remote: None,
+            ssh: None,
+            editor: None,
+            ignore: None,
+            prune: None,
+        };
 
-        remote.push::<String>(&[], None)?;
+        let (status, remote) = self.status(&settings)?;
 
-        Ok(())
+        push::push(self, &settings, &status, remote)
+    }
+
+    fn add(&self) -> Result<(git2::Oid, String)> {
+        add::add(self)
     }
 
     fn create_branch(&self, settings: &Settings, name: &str) -> Result<()> {
@@ -132,7 +150,7 @@ impl Repository {
         try_default_branch::try_default_branch(self, settings)
     }
 
-    pub fn commit(&self) -> Result<()> {
+    pub fn commit(&self) -> Result<git2::Oid> {
         commit::commit(self)
     }
 

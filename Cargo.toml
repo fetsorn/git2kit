@@ -10,3 +10,7 @@ crossterm = "0.29.0"
 serde = { version = "1", features = ["derive"] }
 backtrace = "0.3.75"
 log = "0.4.27"
+
+[dev-dependencies]
+tokio = { version = "1.46.1", features = ["rt-multi-thread", "macros"] }
+temp-dir = "0.1.16"
