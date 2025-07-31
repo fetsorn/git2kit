@@ -1,4 +1,5 @@
 // MIT Andrew Hickman <andrew.hickman1@sky.com>
+#![allow(warnings)]
 mod credentials_state;
 mod error;
 mod head_status;

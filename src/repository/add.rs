@@ -33,7 +33,7 @@ pub fn add(repository: &Repository) -> Result<(git2::Oid, String)> {
 
     let oid = index.write_tree()?;
 
-    Ok((oid, message))
+    return Ok((oid, message));
 }
 
 #[cfg(test)]

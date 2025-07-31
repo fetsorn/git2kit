@@ -56,7 +56,7 @@ mod test {
         push_repository.commit()?;
 
         // try to push an up-to-date repository
-        push_repository.push()?;
+        push_repository.push(&origin)?;
 
         origin_repository.repo.set_head("refs/heads/main")?;
 

@@ -76,19 +76,23 @@ impl Repository {
         working_tree_status::working_tree_status(self)
     }
 
-    pub fn pull(&self) -> Result<pull::PullOutcome> {
+    pub fn pull(&self, origin: &Origin) -> Result<pull::PullOutcome> {
         let settings = Settings {
-            default_branch: None,
-            default_remote: None,
+            default_branch: Some("main".to_string()),
+            default_remote: Some("origin".to_string()),
             ssh: None,
             editor: None,
             ignore: None,
             prune: None,
         };
 
+        self.repo.remote_set_url("origin", &origin.url)?;
+
+        let origin = self.find_remote("origin")?;
+
         let (status, remote) = self.status(&settings)?;
 
-        pull::pull(self, &settings, &status, remote, true, |_| {})
+        pull::pull(self, &settings, &status, Some(origin), true, |_| {})
     }
 
     fn create_unborn(
@@ -103,7 +107,7 @@ impl Repository {
         fast_forward::fast_forward(self, fetch_commit)
     }
 
-    pub fn push(&self) -> Result<()> {
+    pub fn push(&self, origin: &Origin) -> Result<()> {
         let settings = Settings {
             default_branch: None,
             default_remote: None,
@@ -112,6 +116,8 @@ impl Repository {
             ignore: None,
             prune: None,
         };
+
+        self.repo.remote_set_url("origin", &origin.url)?;
 
         let (status, remote) = self.status(&settings)?;
 
