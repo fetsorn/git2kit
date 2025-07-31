@@ -88,7 +88,7 @@ impl Repository {
 
         self.repo.remote_set_url("origin", &origin.url)?;
 
-        let origin = self.find_remote("origin")?;
+        let origin = self.find_remote("origin").unwrap();
 
         let (status, remote) = self.status(&settings)?;
 
@@ -164,14 +164,15 @@ impl Repository {
         find_last_commit::find_last_commit(self)
     }
 
-    fn find_remote(&self, remote: &str) -> Result<git2::Remote> {
-        Ok(self.repo.find_remote(remote)?)
+    fn find_remote(&self, remote: &str) -> Option<git2::Remote> {
+        match self.repo.find_remote(remote) {
+            Ok(r) => Some(r.into()),
+            Err(_) => None
+        }
     }
 
-    pub fn get_origin(&self) -> Result<Origin> {
-        let origin = self.find_remote("origin")?;
-
-        Ok(origin.into())
+    pub fn get_origin(&self) -> Option<Origin> {
+        self.find_remote("origin").map(|r| r.into())
     }
 
     pub fn set_origin(&self, origin: Origin) -> Result<()> {

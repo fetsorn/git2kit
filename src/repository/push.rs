@@ -6,7 +6,7 @@ pub fn push(
     status: &RepositoryStatus,
     remote: Option<git2::Remote>,
 ) -> Result<()> {
-    let mut remote = repository.find_remote("origin")?;
+    let mut remote = repository.find_remote("origin").unwrap();
 
     let head = repository.repo.head()?;
 
