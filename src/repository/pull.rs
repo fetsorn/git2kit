@@ -55,12 +55,14 @@ where
     let (merge_analysis, _) = repository.repo.merge_analysis(&[&fetch_commit])?;
 
     if merge_analysis.is_up_to_date() {
+        log::debug!("pull: up to date");
         Ok(PullOutcome::UpToDate("main".to_owned()))
     // comment unborn or it goes off all the time
     //} else if merge_analysis.is_unborn() {
     //    repository.create_unborn(status, fetch_commit)?;
     //    Ok(PullOutcome::CreatedUnborn(default_branch))
     } else if merge_analysis.is_fast_forward() {
+        log::debug!("pull: fast forward `{}`", fetch_commit.id());
         repository.fast_forward(fetch_commit)?;
         Ok(PullOutcome::FastForwarded("main".to_owned()))
     } else {

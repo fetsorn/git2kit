@@ -172,11 +172,31 @@ impl Repository {
     }
 
     pub fn get_origin(&self) -> Option<Origin> {
-        self.find_remote("origin").map(|r| r.into())
+        let origin = self.find_remote("origin")?;
+
+        let url = origin.url()?.to_string();
+
+        let config = self.repo.config().ok()?.snapshot().ok()?;
+
+        let token = config.get_str("remote.origin.token").ok()?;
+
+        match token {
+            "" => Some(Origin { url, token: None }),
+            _ => Some(Origin { url, token: Some(token.to_string()) })
+        }
     }
 
     pub fn set_origin(&self, origin: Origin) -> Result<()> {
         self.repo.remote_set_url("origin", &origin.url)?;
+
+        match origin.token {
+            None => (),
+            Some(token) => {
+                let mut config = self.repo.config()?;
+
+                config.set_str("remote.origin.token", &token)?;
+            }
+        };
 
         Ok(())
     }
