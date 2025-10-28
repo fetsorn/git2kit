@@ -2,12 +2,13 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
-pub struct Sync {
+pub struct Resolve {
     pub ok: bool,
+    // TODO hunks
 }
 
-impl Sync {
+impl Resolve {
     pub fn new(ok: bool) -> Self {
-        Sync { ok: bool }
+        Resolve { ok: true }
     }
 }

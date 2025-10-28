@@ -1,6 +1,6 @@
 use crate::{Repository, Result};
 
-fn fetch<'a>(
+pub fn fetch<'a>(
     repository: &'a Repository,
     mut remote: git2::Remote,
 ) -> Result<git2::AnnotatedCommit<'a>> {

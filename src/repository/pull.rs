@@ -74,7 +74,7 @@ mod test {
         // reference temp_dir to not move it out of scope
         let temp_path = temp_dir.as_ref().unwrap().path().to_path_buf();
 
-        let temp_repository = Repository::clone(temp_path.clone(), &temp_remote).await?;
+        let temp_repository = Repository::clone(temp_path.clone(), &temp_remote)?;
 
         // clone the temporary directory to a pull directory
         let pull_remote = Origin::new(
@@ -86,7 +86,7 @@ mod test {
 
         let pull_path = pull_dir.as_ref().unwrap().path().to_path_buf();
 
-        let pull_repository = Repository::clone(pull_path.clone(), &pull_remote).await?;
+        let pull_repository = Repository::clone(pull_path.clone(), &pull_remote)?;
 
         // try to pull an up-to-date repository
         let outcome = pull_repository.pull(&pull_remote)?;

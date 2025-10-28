@@ -45,7 +45,7 @@ mod test {
         let push_path = push_dir.as_ref().unwrap().path().to_path_buf();
 
         //let push_repository = Repository::open(&push_path)?;
-        let push_repository = Repository::clone(push_path.clone(), &origin).await?;
+        let push_repository = Repository::clone(push_path.clone(), &origin)?;
 
         push_repository.commit()?;
 
@@ -65,7 +65,7 @@ mod test {
 
         let pull_path = pull_dir.as_ref().unwrap().path().to_path_buf();
 
-        Repository::clone(pull_path.clone(), &origin).await?;
+        Repository::clone(pull_path.clone(), &origin)?;
 
         // check that repo cloned
         let foo = read_dir(&pull_path)?.find(|entry| {

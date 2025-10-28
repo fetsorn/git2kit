@@ -15,6 +15,7 @@ mod init_bare;
 mod open;
 mod pull;
 mod push;
+mod resolve;
 mod status;
 mod switch;
 mod switch_branch;
@@ -27,7 +28,7 @@ pub use pull::PullOutcome;
 pub use upstream_status::UpstreamStatus;
 
 use super::{
-    head_status::HeadStatus, origin::Origin, repository_status::RepositoryStatus,
+    head_status::HeadStatus, origin::Origin, repository_status::RepositoryStatus, resolve::Resolve,
     settings::Settings, working_tree_status::WorkingTreeStatus,
 };
 use crate::Result;
@@ -122,10 +123,12 @@ impl Repository {
         push::push(self, &settings, &status, remote)
     }
 
-    pub fn sync(&self, origin: &Origin) -> Result<Self> {
+    pub fn resolve(&self, origin: &Origin) -> Result<Resolve> {
         self.repo.remote_set_url("origin", &origin.url)?;
 
-        sync::sync(self, origin)
+        let origin = self.find_remote("origin").unwrap();
+
+        resolve::resolve(self, origin)
     }
 
     fn add(&self) -> Result<(git2::Oid, String)> {
