@@ -29,114 +29,81 @@ pub fn resolve(repository: &Repository, remote: git2::Remote) -> Result<Resolve>
 
 #[cfg(test)]
 mod test {
-    use crate::{Repository, Origin, Result};
+    use crate::{Repository, Origin, Result, Resolve};
     use temp_dir::TempDir;
     use std::fs::File;
     use std::io::prelude::*;
-    use std::fs::read_dir;
+    use std::fs::{read_dir, read_to_string};
 
     #[tokio::test]
-    async fn resolve_test() -> Result<()> {
-        // clone the project to a temporary directory
-        let pwd = std::env::current_dir()?;
-
-        let temp_remote = Origin::new(
-            pwd.to_str().unwrap(),
-            Some("token"),
-        );
-
+    async fn resolve_save_test() -> Result<()> {
         // create a temporary directory, will be deleted by destructor
         // must assign to keep in scope;
-        let temp_dir = TempDir::new();
+        let theirs_dir = TempDir::new();
 
         // reference temp_dir to not move it out of scope
-        let temp_path = temp_dir.as_ref().unwrap().path().to_path_buf();
+        let theirs_path = theirs_dir.as_ref().unwrap().path().to_path_buf();
 
-        let temp_repository = Repository::clone(temp_path.clone(), &temp_remote)?;
-
-        // clone the temporary directory to a pull directory
-        let pull_remote = Origin::new(
-            temp_path.to_str().unwrap(),
-            Some("token"),
-        );
-
-        let pull_dir = TempDir::new();
-
-        let pull_path = pull_dir.as_ref().unwrap().path().to_path_buf();
-
-        let pull_repository = Repository::clone(pull_path.clone(), &pull_remote)?;
-
-        // try to pull an up-to-date repository
-        let outcome = pull_repository.resolve(&pull_remote)?;
-
-        assert!(outcome == PullOutcome::UpToDate("main".to_string()));
-
-        let mut file = File::create(temp_path.join("foo.txt"))?;
-
-        file.write_all(b"Hello, world!")?;
-
-        temp_repository.commit()?;
-
-        // try to pull a changed repository
-        let outcome = pull_repository.resolve(&pull_remote)?;
-
-        assert!(outcome == PullOutcome::FastForwarded("main".to_string()));
-
-        // TODO check that merged foo.txt into pull_repository
-        let foo = read_dir(&pull_path)?.find(|entry| {
-            entry.as_ref().unwrap().file_name() == "foo.txt"
-        });
-
-        assert!(foo.is_some());
-
-        // create a temporary directory, will be deleted by destructor
-        // must assign to keep in scope;
-        let origin_dir = TempDir::new();
-
-        // reference temp_dir to not move it out of scope
-        let origin_path = origin_dir.as_ref().unwrap().path().to_path_buf();
-
-        let origin_repository = Repository::init_bare(&origin_path)?;
+        let theirs_repository = Repository::init_bare(&theirs_path)?;
 
         // clone the temporary directory to a push directory
         let origin = Origin::new(
-            origin_path.to_str().unwrap(),
+            theirs_path.to_str().unwrap(),
             Some("token"),
         );
 
-        let push_dir = TempDir::new();
+        let ours_dir = TempDir::new();
 
-        let push_path = push_dir.as_ref().unwrap().path().to_path_buf();
+        let ours_path = ours_dir.as_ref().unwrap().path().to_path_buf();
 
         //let push_repository = Repository::open(&push_path)?;
-        let push_repository = Repository::clone(push_path.clone(), &origin)?;
+        let ours_repository = Repository::clone(ours_path.clone(), &origin)?;
 
-        push_repository.commit()?;
+        // NOTE fetching empty bare repository will error
+        ours_repository.commit()?;
 
-        let mut file = File::create(push_path.join("foo.txt"))?;
+        ours_repository.push(&origin)?;
 
-        file.write_all(b"Hello, world!")?;
+        // resolve an empty repository
+        ours_repository.resolve(&origin)?;
 
-        push_repository.commit()?;
+        let mut file = File::create(ours_path.join("foo.txt"))?;
 
-        // try to push an up-to-date repository
-        push_repository.resolve(&origin)?;
+        file.write_all(b"Hello, world!\n")?;
 
-        origin_repository.repo.set_head("refs/heads/main")?;
+        ours_repository.commit()?;
 
-        // clone the temporary directory to a pull directory
-        let pull_dir = TempDir::new();
+        // resolve a fast-forward repository
+        ours_repository.resolve(&origin)?;
 
-        let pull_path = pull_dir.as_ref().unwrap().path().to_path_buf();
+        // at this point theirs should have foo.txt at main
+        theirs_repository.repo.set_head("refs/heads/main")?;
 
-        Repository::clone(pull_path.clone(), &origin)?;
+        // clone the temporary directory to a check directory
+        let check_dir = TempDir::new();
+
+        let check_path = check_dir.as_ref().unwrap().path().to_path_buf();
+
+        let check_repository = Repository::clone(check_path.clone(), &origin)?;
 
         // check that repo cloned
-        let foo = read_dir(&pull_path)?.find(|entry| {
+        let foo = read_dir(&check_path)?.find(|entry| {
             entry.as_ref().unwrap().file_name() == "foo.txt"
         });
 
         assert!(foo.is_some());
+
+        file.write_all(b"foobar!\n")?;
+
+        ours_repository.commit()?;
+
+        ours_repository.resolve(&origin)?;
+
+        check_repository.resolve(&origin)?;
+
+        let contents = read_to_string(check_path.join("foo.txt"))?;
+
+        assert!(contents == "Hello, world!\nfoobar!\n");
 
         Ok(())
     }

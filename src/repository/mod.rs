@@ -75,6 +75,16 @@ impl Repository {
         working_tree_status::working_tree_status(self)
     }
 
+    pub fn fetch(&self, origin: &Origin) -> Result<()> {
+        self.repo.remote_set_url("origin", &origin.url)?;
+
+        let origin = self.find_remote("origin").unwrap();
+
+        fetch::fetch(self, origin);
+
+        Ok(())
+    }
+
     pub fn pull(&self, origin: &Origin) -> Result<pull::PullOutcome> {
         let settings = Settings {
             default_branch: Some("main".to_string()),

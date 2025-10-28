@@ -17,7 +17,7 @@ pub fn fetch<'a>(
                 .download_tags(git2::AutotagOption::All)
                 .update_fetchhead(true),
         ),
-        Some("multi-git: fetching"),
+        Some("git2kit: fetching"),
     )?;
 
     let fetch_head = repository.repo.find_reference("FETCH_HEAD")?;

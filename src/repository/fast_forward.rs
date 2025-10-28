@@ -5,7 +5,7 @@ pub fn fast_forward(repository: &Repository, fetch_commit: git2::AnnotatedCommit
     let mut branch = repository.head_branch()?;
 
     let log_message = format!(
-        "multi-git: fast-forwarding branch {} to {}",
+        "git2kit: fast-forwarding branch {} to {}",
         branch.name_bytes()?.as_bstr(),
         fetch_commit.id(),
     );
