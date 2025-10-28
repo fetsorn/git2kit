@@ -134,10 +134,6 @@ impl Repository {
     }
 
     pub fn resolve(&self, origin: &Origin) -> Result<Resolve> {
-        self.repo.remote_set_url("origin", &origin.url)?;
-
-        let origin = self.find_remote("origin").unwrap();
-
         resolve::resolve(self, origin)
     }
 

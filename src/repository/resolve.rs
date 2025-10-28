@@ -1,8 +1,32 @@
 use super::fetch::fetch;
-use crate::{Repository, Resolve, Result};
+use crate::{Repository, Resolve, Result, Origin};
 
-pub fn resolve(repository: &Repository, remote: git2::Remote) -> Result<Resolve> {
-    let fetch_commit = fetch(repository, remote.clone())?;
+pub fn resolve(repository: &Repository, origin: &Origin) -> Result<Resolve> {
+    repository.repo.remote_set_url("origin", &origin.url)?;
+
+    let remote = repository.find_remote("origin").unwrap();
+
+    let token_partial = origin.token.clone().unwrap_or("".to_string());
+
+    let token_header = format!("Authorization: token {}", token_partial);
+
+    let custom_headers: Vec<&str> = match &origin.token {
+        None => vec![],
+        Some(token) => vec![&token_header]
+    };
+
+    remote.clone().fetch::<&str>(
+        &[],
+        Some(
+            git2::FetchOptions::new()
+                .custom_headers(&custom_headers)
+        ),
+        Some("git2kit: fetching"),
+    )?;
+
+    let fetch_head = repository.repo.find_reference("FETCH_HEAD")?;
+
+    let fetch_commit = repository.repo.reference_to_annotated_commit(&fetch_head)?;
 
     let (merge_analysis, _) = repository.repo.merge_analysis(&[&fetch_commit])?;
 
@@ -22,7 +46,12 @@ pub fn resolve(repository: &Repository, remote: git2::Remote) -> Result<Resolve>
 
     let head = repository.repo.head()?;
 
-    remote.clone().push(&[head.name().unwrap()], None)?;
+    remote.clone().push(&[head.name().unwrap()],
+        Some(
+            git2::PushOptions::new()
+                .custom_headers(&custom_headers)
+        ),
+    )?;
 
     Ok(Resolve { ok: true })
 }
@@ -49,7 +78,7 @@ mod test {
         // clone the temporary directory to a push directory
         let origin = Origin::new(
             theirs_path.to_str().unwrap(),
-            Some("token"),
+            None,
         );
 
         let ours_dir = TempDir::new();
