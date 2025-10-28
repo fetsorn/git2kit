@@ -2,7 +2,7 @@ use super::Repository;
 use crate::{Origin, Result};
 use std::path::PathBuf;
 
-pub async fn clone(
+pub fn clone(
     dataset_dir: PathBuf,
     remote: &Origin,
 ) -> Result<Repository> {
@@ -69,7 +69,7 @@ mod test {
         let temp_path = temp_dir.as_ref().unwrap().path().to_path_buf();
 
 
-        let repository = Repository::clone(temp_path.clone(), &remote).await?;
+        let repository = Repository::clone(temp_path.clone(), &remote)?;
 
         assert!(repository.repo.path() == temp_path.join(".git"));
 

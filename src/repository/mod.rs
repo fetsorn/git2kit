@@ -1,33 +1,37 @@
-mod open;
 mod add;
+mod clone;
+mod commit;
+mod create_branch;
+mod create_unborn;
+mod default_branch_for_remote;
+mod default_remote;
+mod fast_forward;
+mod fetch;
+mod find_last_commit;
+mod head_branch;
+mod head_status;
 mod init;
 mod init_bare;
-mod clone;
-mod status;
-mod try_open;
-mod head_status;
-mod upstream_status;
-mod working_tree_status;
+mod open;
 mod pull;
 mod push;
-mod create_unborn;
-mod fast_forward;
-mod create_branch;
-mod switch_branch;
+mod status;
 mod switch;
-mod head_branch;
-mod default_remote;
-mod default_branch_for_remote;
+mod switch_branch;
 mod try_default_branch;
-mod commit;
-mod find_last_commit;
+mod try_open;
+mod upstream_status;
+mod working_tree_status;
 
-pub use upstream_status::UpstreamStatus;
 pub use pull::PullOutcome;
+pub use upstream_status::UpstreamStatus;
 
-use super::{head_status::HeadStatus, repository_status::RepositoryStatus, origin::Origin, working_tree_status::WorkingTreeStatus, settings::Settings};
-use std::path::{Path, PathBuf};
+use super::{
+    head_status::HeadStatus, origin::Origin, repository_status::RepositoryStatus,
+    settings::Settings, working_tree_status::WorkingTreeStatus,
+};
 use crate::Result;
+use std::path::{Path, PathBuf};
 
 pub struct Repository {
     repo: git2::Repository,
@@ -46,17 +50,11 @@ impl Repository {
         open::open(path)
     }
 
-    pub async fn clone(
-        dataset_dir: PathBuf,
-        origin: &Origin,
-    ) -> Result<Self> {
-        clone::clone(dataset_dir, origin).await
+    pub fn clone(dataset_dir: PathBuf, origin: &Origin) -> Result<Self> {
+        clone::clone(dataset_dir, origin)
     }
 
-    pub fn status(
-        &self,
-        settings: &Settings,
-    ) -> Result<(RepositoryStatus, Option<git2::Remote>)> {
+    pub fn status(&self, settings: &Settings) -> Result<(RepositoryStatus, Option<git2::Remote>)> {
         status::status(self, settings)
     }
 
@@ -124,6 +122,12 @@ impl Repository {
         push::push(self, &settings, &status, remote)
     }
 
+    pub fn sync(&self, origin: &Origin) -> Result<Self> {
+        self.repo.remote_set_url("origin", &origin.url)?;
+
+        sync::sync(self, origin)
+    }
+
     fn add(&self) -> Result<(git2::Oid, String)> {
         add::add(self)
     }
@@ -167,7 +171,7 @@ impl Repository {
     fn find_remote(&self, remote: &str) -> Option<git2::Remote> {
         match self.repo.find_remote(remote) {
             Ok(r) => Some(r.into()),
-            Err(_) => None
+            Err(_) => None,
         }
     }
 
@@ -182,7 +186,10 @@ impl Repository {
 
         match token {
             "" => Some(Origin { url, token: None }),
-            _ => Some(Origin { url, token: Some(token.to_string()) })
+            _ => Some(Origin {
+                url,
+                token: Some(token.to_string()),
+            }),
         }
     }
 
