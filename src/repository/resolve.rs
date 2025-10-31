@@ -1,41 +1,49 @@
-use super::fetch::fetch;
-use crate::{Repository, Resolve, Result, Origin};
+use crate::{Repository, Resolve, Result, Origin, Error};
 
-pub fn resolve(repository: &Repository, origin: &Origin) -> Result<Resolve> {
-    repository.repo.remote_set_url("origin", &origin.url)?;
-
-    let remote = repository.find_remote("origin").unwrap();
-
+fn authorize(repository: &Repository, origin: &Origin) -> Vec<String>{
     let token_partial = origin.token.clone().unwrap_or("".to_string());
 
     let token_header = format!("Authorization: token {}", token_partial);
 
-    let custom_headers: Vec<&str> = match &origin.token {
+    match &origin.token {
         None => vec![],
-        Some(token) => vec![&token_header]
-    };
+        Some(token) => vec![token_header]
+    }
+}
+
+fn fetch<'a>(repository: &'a Repository, headers: &Vec<&str>) -> Result<git2::AnnotatedCommit<'a>>{
+    let remote = repository.find_remote("origin").ok_or(Error::from_message("Remote not found"))?;
 
     remote.clone().fetch::<&str>(
         &[],
         Some(
             git2::FetchOptions::new()
-                .custom_headers(&custom_headers)
+                .custom_headers(headers)
         ),
         Some("git2kit: fetching"),
     )?;
 
+    // this errors when bare repo is empty
     let fetch_head = repository.repo.find_reference("FETCH_HEAD")?;
 
     let fetch_commit = repository.repo.reference_to_annotated_commit(&fetch_head)?;
 
+    Ok(fetch_commit)
+}
+
+fn merge(repository: &Repository, fetch_commit: git2::AnnotatedCommit) -> Result<Resolve> {
     let (merge_analysis, _) = repository.repo.merge_analysis(&[&fetch_commit])?;
 
     if merge_analysis.is_up_to_date() {
         log::debug!("pull: up to date");
+
+        return Ok(Resolve { ok: true });
     } else if merge_analysis.is_fast_forward() {
         log::debug!("pull: fast forward `{}`", fetch_commit.id());
 
         repository.fast_forward(fetch_commit)?;
+
+        return Ok(Resolve { ok: true });
     } else {
         // TODO diff3 resolve with resolution hunks
         // TODO add
@@ -43,17 +51,50 @@ pub fn resolve(repository: &Repository, origin: &Origin) -> Result<Resolve> {
         // TODO return conflict hunks
         return Ok(Resolve { ok: false });
     }
+}
+
+fn push(repository: &Repository, headers: &Vec<&str>) -> Result<()> {
+    let remote = repository.find_remote("origin").ok_or(Error::from_message("Remote not found"))?;
 
     let head = repository.repo.head()?;
 
     remote.clone().push(&[head.name().unwrap()],
         Some(
             git2::PushOptions::new()
-                .custom_headers(&custom_headers)
+                .custom_headers(headers)
         ),
     )?;
 
-    Ok(Resolve { ok: true })
+    Ok(())
+}
+
+pub fn resolve(repository: &Repository, origin: &Origin) -> Result<Resolve> {
+    repository.repo.remote_set_url("origin", &origin.url)?;
+
+    let headers: Vec<String> = authorize(repository, origin);
+
+    let headers: Vec<&str> = headers.iter().map(|s| s as &str).collect();
+
+    match fetch(repository, &headers) {
+        Ok(fetch_commit) => {
+            // if fetch succeeds, try to merge
+            let resolveResult = merge(repository, fetch_commit)?;
+
+            // if merge succeeds, try to push
+            push(repository, &headers)?;
+
+            Ok(resolveResult)
+        }
+        Err(e) => {
+            // if fetch fails, try to push
+            if let Err(e) = push(repository, &headers) {
+                // if both fetch and push fail, return fetch error
+                return Err(e);
+            }
+
+            Ok(Resolve { ok: true })
+        }
+    }
 }
 
 #[cfg(test)]
@@ -88,12 +129,10 @@ mod test {
         //let push_repository = Repository::open(&push_path)?;
         let ours_repository = Repository::clone(ours_path.clone(), &origin)?;
 
-        // NOTE fetching empty bare repository will error
+        // empty commit just initialize the branch
         ours_repository.commit()?;
 
-        ours_repository.push(&origin)?;
-
-        // resolve an empty repository
+        // push empty commit to remote
         ours_repository.resolve(&origin)?;
 
         let mut file = File::create(ours_path.join("foo.txt"))?;
